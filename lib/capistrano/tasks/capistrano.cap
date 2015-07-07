@@ -1,0 +1,49 @@
+namespace :load do
+  task :defaults do
+    set :phoenix_role, -> { :app }
+    set :phoenix_mix_env, -> { fetch(:mix_env) }
+  end
+end
+
+namespace :phoenix do
+  def is_application_running?()
+    pid = capture(%Q{ps ax -o pid= -o command=|grep "rel/#{fetch(:application)}/.*/[b]eam"|awk '{print $1}'})
+    return pid != ""
+  end
+
+  desc 'ping'
+  task :ping do
+    on roles(fetch(:phoenix_role)), in: :sequence do
+      within current_path  do
+        execute "rel/#{fetch(:application)}/bin/#{fetch(:application)}", "ping"
+      end
+    end
+  end
+
+  desc 'build'
+  task :build do
+    on roles(fetch(:phoenix_role)), in: :sequence do
+      within release_path  do
+        execute :mix, "do deps.get, compile && MIX_ENV=#{fetch(:phoenix_mix_env)} mix phoenix.digest && MIX_ENV=#{fetch(:phoenix_mix_env)} mix release"
+      end
+    end
+  end
+
+  desc 'restart phoenix app'
+  task :restart do
+    on roles(fetch(:phoenix_role)), in: :sequence do
+      within current_path  do
+
+        if is_application_running?
+          execute "rel/#{fetch(:application)}/bin/#{fetch(:application)}", "stop"
+        end
+        execute "rel/#{fetch(:application)}/bin/#{fetch(:application)}", "start -detached"
+      end
+    end
+  end
+end
+
+namespace :deploy do
+  after :publishing, "phoenix:build"
+  after :published, "phoenix:restart"
+end
