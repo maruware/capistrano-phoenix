@@ -1,3 +1,1 @@
-source 'https://rubygems.org'
-
-gemspec
+require "bundler/gem_tasks"
